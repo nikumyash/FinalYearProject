@@ -309,16 +309,22 @@ public class FreezeTagEnvController : MonoBehaviour
     // Setup timer UI based on level
     private void SetupTimerUI()
     {
+        // Enable or disable the timer panel based on whether we have a time limit
         if (timerPanel != null)
         {
-            timerPanel.SetActive(true);
+            timerPanel.SetActive(gameTimeLimit > 0f);
+        }
+    }
+
+    // Add a public method to get normalized time remaining for agents
+    public float GetNormalizedTimeRemaining()
+    {
+        if (gameTimeLimit <= 0f) {
+            return 1f; // No time limit
         }
         
-        if (timerText != null)
-        {
-            string levelName = isLevel2 ? "Level 2" : "Level 1";
-            UpdateTimerText();
-        }
+        float timeRemaining = Mathf.Max(0f, gameTimeLimit - currentGameTime);
+        return timeRemaining / gameTimeLimit; // Returns 1.0 at start, 0.0 at end
     }
 
     // Update timer display
@@ -769,5 +775,51 @@ public class FreezeTagEnvController : MonoBehaviour
                 timerText.text = "0:00";
             }
         }
+    }
+
+    // Calculate percentage of runners currently frozen (0.0 to 1.0)
+    public float GetPercentRunnersCurrentlyFrozen()
+    {
+        if (RunnerAgents.Count == 0) return 0f;
+        
+        int frozenCount = 0;
+        foreach (var runner in RunnerAgents)
+        {
+            if (runner != null && runner.IsFrozen)
+            {
+                frozenCount++;
+            }
+        }
+        
+        return (float)frozenCount / RunnerAgents.Count;
+    }
+    
+    // Calculate how well distributed freeze balls are among taggers (0.0 = unbalanced, 1.0 = perfectly balanced)
+    public float GetFreezeBallDistributionBalance()
+    {
+        if (TaggerAgents.Count <= 1) return 1f; // Perfect balance with 0 or 1 tagger
+        
+        int totalBalls = 0;
+        int maxBallsHeld = 0;
+        int minBallsHeld = int.MaxValue;
+        
+        foreach (var tagger in TaggerAgents)
+        {
+            if (tagger != null)
+            {
+                totalBalls += tagger.FreezeBallsHeld;
+                maxBallsHeld = Mathf.Max(maxBallsHeld, tagger.FreezeBallsHeld);
+                minBallsHeld = Mathf.Min(minBallsHeld, tagger.FreezeBallsHeld);
+            }
+        }
+        
+        if (totalBalls == 0) return 1f; // No balls is considered balanced
+        
+        // Calculate balance where 0 = complete imbalance, 1 = perfect balance
+        float idealBallsPerTagger = (float)totalBalls / TaggerAgents.Count;
+        float maxDeviation = Mathf.Max(maxBallsHeld - idealBallsPerTagger, idealBallsPerTagger - minBallsHeld);
+        
+        // Normalize: 1.0 = perfect balance, 0.0 = complete imbalance
+        return Mathf.Clamp01(1f - (maxDeviation / (totalBalls + 0.01f)));
     }
 }

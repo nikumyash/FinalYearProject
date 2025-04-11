@@ -58,7 +58,25 @@ public class TaggerAgent : Agent
     {
         // Observations:
         sensor.AddObservation(FreezeBallsHeld);
-        // Add other observations if needed (e.g., normalized time remaining from envController)
+        
+        // Add normalized time remaining (0 to 1 value)
+        float normalizedTimeRemaining = 0f;
+        if (envController != null) {
+            normalizedTimeRemaining = envController.GetNormalizedTimeRemaining();
+        }
+        sensor.AddObservation(normalizedTimeRemaining);
+        
+        // Add global team state
+        if (envController != null) {
+            // Observe percentage of runners currently frozen
+            float percentFrozen = envController.GetPercentRunnersCurrentlyFrozen();
+            sensor.AddObservation(percentFrozen);
+            
+            // Observe freeze ball distribution balance
+            float teamFreezeBallBalance = envController.GetFreezeBallDistributionBalance();
+            sensor.AddObservation(teamFreezeBallBalance);
+        }
+        
         // Raycasts added automatically if RayPerceptionSensor component is present
     }
 
@@ -187,6 +205,7 @@ public class TaggerAgent : Agent
     {
         FreezeBallsHeld++;
         //Debug.Log($"{name} collected freeze ball. Total: {FreezeBallsHeld}");
+        AddReward(0.1f); // Reward for collecting a freeze ball
         envController?.FreezeBallCollected(ball); // Tell controller (use null-conditional)
     }
 
@@ -194,7 +213,7 @@ public class TaggerAgent : Agent
     {
         FreezeBallsHeld--;
         //Debug.Log($"{name} froze {runner.name}! Freeze balls left: {FreezeBallsHeld}");
-        runner.FreezeAgent(); // Tell the runner to freeze itself
+        runner.FreezeAgent(true); // Specify that this freeze is by a tagger
         AddReward(0.5f); // Reward for freezing one runner (reduced from 1.0)
     }
 

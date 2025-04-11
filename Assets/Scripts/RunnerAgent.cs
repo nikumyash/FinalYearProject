@@ -120,7 +120,21 @@ public class RunnerAgent : Agent
         // Observations:
         sensor.AddObservation(IsFrozen ? 1f : 0f);
         sensor.AddObservation(IsBeingUnfrozen ? 1f : 0f);
-        sensor.AddObservation(IsBeingUnfrozen ? (unfreezeTimer / UNFREEZE_TIME_REQUIRED) : 0f);
+        
+        // Add normalized time remaining (0 to 1 value)
+        float normalizedTimeRemaining = 0f;
+        if (envController != null) {
+            normalizedTimeRemaining = envController.GetNormalizedTimeRemaining();
+        }
+        sensor.AddObservation(normalizedTimeRemaining);
+        
+        // Add global team state
+        if (envController != null) {
+            // Observe percentage of runners currently frozen
+            float percentFrozen = envController.GetPercentRunnersCurrentlyFrozen();
+            sensor.AddObservation(percentFrozen);
+        }
+        
         // Raycasts added automatically if RayPerceptionSensor component is present
     }
 
@@ -373,11 +387,20 @@ public class RunnerAgent : Agent
         UnfreezeAgent();
     }
 
-    public void FreezeAgent() {
+    public void FreezeAgent(bool frozenByTagger = false) {
         if (!IsFrozen) {
             //Debug.Log($"{name} has been frozen!");
             IsFrozen = true;
             IsBeingUnfrozen = false;
+            
+            // Add punishment for being frozen only when frozen by a tagger
+            if (frozenByTagger) {
+                AddReward(-0.5f);
+                Debug.Log($"[REWARD] {name} penalized (-0.5) for being frozen by tagger");
+            } else {
+                Debug.Log($"[INFO] {name} frozen by level setup (no penalty applied)");
+            }
+            
             gameObject.tag = "frozen runner";
             if(rb != null) {
                 rb.constraints = RigidbodyConstraints.FreezeAll;
