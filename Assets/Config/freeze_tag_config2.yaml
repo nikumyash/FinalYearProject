@@ -1,0 +1,235 @@
+# Freeze Tag Configuration
+# ======================
+
+behaviors:
+  RunnerBehavior:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 1024
+      buffer_size: 10240
+      learning_rate: 3.0e-4
+      beta: 5.0e-3
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+      learning_rate_schedule: linear
+    network_settings:
+      normalize: false
+      hidden_units: 512
+      num_layers: 4
+      vis_encode_type: simple
+    reward_signals:
+      extrinsic:
+        gamma: 0.99
+        strength: 1.0
+    max_steps: 10000000
+    time_horizon: 64
+    summary_freq: 20000
+    checkpoint_interval: 50000
+    keep_checkpoints: 200
+
+  TaggerBehavior:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 512
+      buffer_size: 5120
+      learning_rate: 3.0e-4
+      beta: 5.0e-3
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 3
+      learning_rate_schedule: linear
+    network_settings:
+      normalize: false
+      hidden_units: 512
+      num_layers: 4
+      vis_encode_type: simple
+    reward_signals:
+      extrinsic:
+        gamma: 0.99
+        strength: 1.0
+    max_steps: 10000000
+    time_horizon: 64
+    summary_freq: 20000
+    checkpoint_interval: 50000
+    keep_checkpoints: 200
+
+environment_parameters:
+  lesson:
+    curriculum:
+      - name: Lesson0_easy
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 1
+          require_reset: true
+        value: 0.0
+      - name: Lesson0_medium
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2
+          require_reset: true
+        value: 0.5
+      - name: Lesson1_base
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2.5
+          require_reset: true
+        value: 1.0
+      - name: Lesson1_hard
+        value: 1.5
+
+  level_index:
+    curriculum:
+      - name: Lesson0_easy
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 1
+          require_reset: true
+        value: 0.0
+      - name: Lesson0_medium
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2
+          require_reset: true
+        value: 0.0
+      - name: Lesson1_base
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2.5
+          require_reset: true
+        value: 1.0
+      - name: Lesson1_hard
+        value: 1.0
+
+  num_foodballs:
+    curriculum:
+      - name: Lesson0_easy
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 1
+          require_reset: true
+        value: 10.0
+      - name: Lesson0_medium
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2
+          require_reset: true
+        value: 10.0
+      - name: Lesson1_base
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2.5
+          require_reset: true
+        value: 15.0
+      - name: Lesson1_hard
+        value: 15.0
+
+  num_runners:
+    sampler_type: constant
+    sampler_parameters:
+      value: 5.0
+
+  num_taggers:
+    curriculum:
+      - name: Lesson0_easy
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 1
+          require_reset: true
+        value: 0.0
+      - name: Lesson0_medium
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2
+          require_reset: true
+        value: 0.0
+      - name: Lesson1_base
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2.5
+          require_reset: true
+        value: 2.0
+      - name: Lesson1_hard
+        value: 4.0
+
+  num_freezeballs:
+    curriculum:
+      - name: Lesson0_easy
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 1
+          require_reset: true
+        value: 0.0
+      - name: Lesson0_medium
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2
+          require_reset: true
+        value: 0.0
+      - name: Lesson1_base
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2.5
+          require_reset: true
+        value: 5.0
+      - name: Lesson1_hard
+        value: 10.0
+
+  time_limit:
+    curriculum:
+      - name: Lesson0_easy
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 1
+          require_reset: true
+        value: 100.0
+      - name: Lesson0_medium
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2
+          require_reset: true
+        value: 100.0
+      - name: Lesson1_base
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2.5
+          require_reset: true
+        value: 100.0
+      - name: Lesson1_hard
+        value: 60.0
