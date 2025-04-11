@@ -81,7 +81,7 @@ public class FreezeTagEnvController : MonoBehaviour
 
     void Awake()
     {
-        Debug.unityLogger.logEnabled = false;
+        // Debug.unityLogger.logEnabled = false;
         Debug.Log("FreezeTagEnvController Awake started");
         
         // Initialize lists - they will be populated during EnvironmentReset
@@ -186,6 +186,8 @@ public class FreezeTagEnvController : MonoBehaviour
                      $"Runners={numRunnersToSpawn}, Taggers={numTaggersToSpawn}, " +
                      $"Food={numFoodballsToSpawn}, Freeze={numFreezeBallsToSpawn}, Time={gameTimeLimit}");
             return;
+        }else{
+            overrideLevel = false;
         }
         
         var envParams = Academy.Instance.EnvironmentParameters;

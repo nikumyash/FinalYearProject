@@ -261,7 +261,17 @@ public class RunnerAgent : Agent
             RunnerAgent rescuer = other.GetComponent<RunnerAgent>();
             if (rescuer != null && !rescuer.IsFrozen)
             {
-                AttemptUnfreeze(rescuer);
+                // Only attempt to unfreeze if there's no current unfreezing in progress
+                // or if the current rescuer is no longer valid
+                if (!IsBeingUnfrozen || currentRescuer == null)
+                {
+                    AttemptUnfreeze(rescuer);
+                }
+                else
+                {
+                    // Log that another runner is nearby but unfreezing is already in progress
+                    Debug.Log($"[INFO] {rescuer.name} is near {name} but unfreezing already in progress by {currentRescuer.name}");
+                }
             }
         }
     }
@@ -273,15 +283,16 @@ public class RunnerAgent : Agent
 
     public void HandleTriggerExit(Collider other)
     {
-        if (!IsFrozen) return;
+        if (!IsFrozen || !IsBeingUnfrozen) return;
         
-        // If a runner leaves the area, cancel any unfreeze attempt
+        // If a runner leaves the area, cancel any unfreeze attempt ONLY if it's the current rescuer
         if (other.CompareTag("runner"))
         {
-            RunnerAgent rescuer = other.GetComponent<RunnerAgent>();
-            if (rescuer != null && rescuer == currentRescuer)
+            RunnerAgent exitingRunner = other.GetComponent<RunnerAgent>();
+            if (exitingRunner != null && exitingRunner == currentRescuer)
             {
-                CancelUnfreezeAttempt(rescuer);
+                Debug.Log($"[INFO] Current rescuer {exitingRunner.name} left the unfreeze area of {name}");
+                CancelUnfreezeAttempt(exitingRunner);
             }
         }
     }
