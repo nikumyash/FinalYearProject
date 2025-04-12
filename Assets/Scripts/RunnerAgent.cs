@@ -368,6 +368,11 @@ public class RunnerAgent : Agent
         {
             AddReward(0.01f * Time.fixedDeltaTime); // +0.01 per second for surviving
         }
+        else
+        {
+            // Add penalty while frozen
+            AddReward(-0.005f * Time.fixedDeltaTime); // -0.005 per second while frozen
+        }
         
         if (IsBeingUnfrozen && currentRescuer != null)
         {
@@ -470,7 +475,7 @@ public class RunnerAgent : Agent
     
     IEnumerator GiveUnfreezeProgressReward() {
         while(true) {
-            AddReward(0.025f * Time.deltaTime); // Increased from 0.01 to 0.025 per second
+            AddReward(0.05f * Time.deltaTime); // Increased from 0.025f to 0.05f per second
             yield return null;
         }
     }
@@ -485,7 +490,7 @@ public class RunnerAgent : Agent
     void CollectFoodball(GameObject foodball) {
         if (!IsFrozen) {
             // Add reward for collecting foodball
-            AddReward(0.2f);
+            AddReward(0.05f); // Decreased from 0.2f to 0.05f
             
             // Tell environment controller to handle the collection
             envController?.FoodballCollected(foodball);

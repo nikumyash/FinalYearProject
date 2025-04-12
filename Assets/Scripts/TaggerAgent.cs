@@ -205,7 +205,7 @@ public class TaggerAgent : Agent
     {
         FreezeBallsHeld++;
         //Debug.Log($"{name} collected freeze ball. Total: {FreezeBallsHeld}");
-        AddReward(0.1f); // Reward for collecting a freeze ball
+        AddReward(0.05f); // Decreased from 0.1f to 0.05f
         envController?.FreezeBallCollected(ball); // Tell controller (use null-conditional)
     }
 
@@ -226,11 +226,11 @@ public class TaggerAgent : Agent
         // Apply unfreezing penalty if needed
         if (applyUnfreezePenalty)
         {
-            AddReward(-0.025f * Time.fixedDeltaTime); // Increased from -0.01 to -0.025 per second
+            AddReward(-0.025f * Time.fixedDeltaTime); // Decreased from -0.05f to -0.025f per second
         }
 
         // Penalty for each second runners survive
-        AddReward(-0.001f * Time.fixedDeltaTime); // -0.001 per second that runners survive
+        AddReward(-0.005f * Time.fixedDeltaTime); // Decreased from -0.01f to -0.005f per second
 
         // --- Movement Implementation ---
         Vector3 moveDirection = Vector3.zero;

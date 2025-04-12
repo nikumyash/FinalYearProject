@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using UnityEngine.UI; // Add UI namespace
 using TMPro; // Add TextMeshPro namespace
 using System.Collections; // Add for coroutines
+using System.IO; // Add System.IO namespace
+using System.Linq; // Add System.Linq namespace for Average() method
 
 public class FreezeTagEnvController : MonoBehaviour
 {
@@ -30,6 +32,9 @@ public class FreezeTagEnvController : MonoBehaviour
     [Header("UI Elements")]
     public TextMeshProUGUI timerText; // Reference to the timer text UI element
     public GameObject timerPanel; // Panel containing the timer (can be enabled/disabled)
+    public TextMeshProUGUI resultText; // For displaying who won
+    public TextMeshProUGUI runnerWinsText; // For displaying runner wins
+    public TextMeshProUGUI taggerWinsText; // For displaying tagger wins
 
     [Header("Level Control")]
     [Tooltip("Check this to override ML-Agents curriculum and force a specific level")]
@@ -78,6 +83,44 @@ public class FreezeTagEnvController : MonoBehaviour
 
     // Add this field near the top with other private fields
     private bool resetInProgress = false;
+
+    // Win counters
+    private int runnerWins = 0;
+    private int taggerWins = 0;
+    private int totalEpisodes = 0;
+    private const int MAX_EPISODES = 2;
+    private System.DateTime experimentStartTime;
+    private System.DateTime episodeStartTime;
+    private string csvFilePath;
+    private System.IO.StreamWriter csvWriter;
+
+    // New metrics tracking
+    private int runnersFrozenThisEpisode = 0;
+    private int successfulUnfreezesThisEpisode = 0;
+    private int foodballsCollectedThisEpisode = 0;
+    private int freezeBallsCollectedThisEpisode = 0;
+    private float timeToFirstFreeze = 0f;
+    private bool firstFreezeOccurred = false;
+    private float totalTimeRunnersFrozen = 0f;
+    private float totalTimeSpentUnfreezing = 0f;
+    private float totalDistanceBetweenAgents = 0f;
+    private int distanceMeasurements = 0;
+    private int agentCollisions = 0;
+    private int successfulDodges = 0;
+
+    // Additional metrics
+    private float totalRunnerSurvivalTime = 0f;
+    private int totalUnfreezeAttempts = 0;
+    private int totalSuccessfulFreezes = 0;
+    private int totalUnfreezes = 0;
+    private float totalFreezeBallLifetime = 0f;
+    private float totalFoodBallLifetime = 0f;
+    private int freezeBallsUsed = 0;
+    private int totalFreezeBallsCollected = 0;
+    private int totalFoodBallsCollected = 0;
+    private List<float> runnerSurvivalTimes = new List<float>();
+    private List<float> freezeBallLifetimes = new List<float>();
+    private List<float> foodBallLifetimes = new List<float>();
 
     void Awake()
     {
@@ -131,9 +174,154 @@ public class FreezeTagEnvController : MonoBehaviour
         // Clean up any remaining spawned objects if the controller is destroyed mid-game
         Debug.Log("Cleaning up spawned objects");
         ClearAllSpawnedObjects();
+        
+        // Reset time scale when experiment ends
+        Time.timeScale = 1f;
+        Debug.Log("Time scale reset to normal speed");
+        
+        // Close CSV writer if it's still open
+        if (csvWriter != null)
+        {
+            csvWriter.Close();
+            Debug.Log($"Experiment logs saved to: {csvFilePath}");
+        }
+        
         Debug.Log("FreezeTagEnvController OnDestroy completed");
     }
 
+    void Start()
+    {
+        totalEpisodes = 0;
+        runnerWins = 0;
+        taggerWins = 0;
+        SetupUI();
+        UpdateWinCounters();
+        
+        // Set time scale to 5x for faster experiment
+        Time.timeScale = 5f;
+        Debug.Log("Experiment running at 5x speed");
+        
+        // Initialize CSV logging
+        InitializeCSVLogging();
+    }
+
+    void InitializeCSVLogging()
+    {
+        // Create logs directory if it doesn't exist
+        string logsDirectory = System.IO.Path.Combine(Application.dataPath, "Logs");
+        if (!System.IO.Directory.Exists(logsDirectory))
+        {
+            System.IO.Directory.CreateDirectory(logsDirectory);
+        }
+
+        // Create CSV file with timestamp
+        string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        csvFilePath = System.IO.Path.Combine(logsDirectory, $"freeze_tag_experiment_{timestamp}.csv");
+        
+        // Initialize CSV writer and write header with all metrics
+        csvWriter = new System.IO.StreamWriter(csvFilePath);
+        csvWriter.WriteLine("Episode,Timestamp,Winner,RunnerWins,TaggerWins,EpisodeLength,ExperimentDuration," +
+                          "RunnersFrozen,SuccessfulUnfreezes,FoodballsCollected,FreezeBallsCollected," +
+                          "TimeToFirstFreeze,AvgTimeFrozen,TimeSpentUnfreezing,AvgDistanceBetweenAgents," +
+                          "AgentCollisions,SuccessfulDodges,RemainingFreezeBalls,RemainingFoodballs," +
+                          "AvgRunnerSurvivalTime,TotalUnfreezeAttempts,AvgUnfreezeAttempts," +
+                          "TotalSuccessfulFreezes,AvgSuccessfulFreezesPerTagger,TotalUnfreezes,AvgUnfreezes," +
+                          "AvgFreezeBallLifetime,AvgFoodBallLifetime,FreezeBallsUsed," +
+                          "TotalFreezeBallsCollected,TotalFoodBallsCollected");
+        
+        // Record experiment start time
+        experimentStartTime = System.DateTime.Now;
+        Debug.Log($"Experiment logs will be saved to: {csvFilePath}");
+    }
+
+    void ResetEpisodeMetrics()
+    {
+        // Reset existing metrics
+        runnersFrozenThisEpisode = 0;
+        successfulUnfreezesThisEpisode = 0;
+        foodballsCollectedThisEpisode = 0;
+        freezeBallsCollectedThisEpisode = 0;
+        timeToFirstFreeze = 0f;
+        firstFreezeOccurred = false;
+        totalTimeRunnersFrozen = 0f;
+        totalTimeSpentUnfreezing = 0f;
+        totalDistanceBetweenAgents = 0f;
+        distanceMeasurements = 0;
+        agentCollisions = 0;
+        successfulDodges = 0;
+
+        // Reset new metrics
+        totalRunnerSurvivalTime = 0f;
+        totalUnfreezeAttempts = 0;
+        totalSuccessfulFreezes = 0;
+        totalUnfreezes = 0;
+        totalFreezeBallLifetime = 0f;
+        totalFoodBallLifetime = 0f;
+        freezeBallsUsed = 0;
+        runnerSurvivalTimes.Clear();
+        freezeBallLifetimes.Clear();
+        foodBallLifetimes.Clear();
+    }
+
+    void UpdateMetrics()
+    {
+        // Update distance metrics
+        foreach (var runner in RunnerAgents)
+        {
+            if (runner != null && !runner.IsFrozen)
+            {
+                foreach (var tagger in TaggerAgents)
+                {
+                    if (tagger != null)
+                    {
+                        float distance = Vector3.Distance(runner.transform.position, tagger.transform.position);
+                        totalDistanceBetweenAgents += distance;
+                        distanceMeasurements++;
+                    }
+                }
+            }
+        }
+    }
+
+    void LogEpisodeResult(string winner)
+    {
+        if (csvWriter != null)
+        {
+            System.TimeSpan episodeDuration = System.DateTime.Now - episodeStartTime;
+            System.TimeSpan experimentDuration = System.DateTime.Now - experimentStartTime;
+            string episodeDurationString = $"{episodeDuration.Minutes:00}:{episodeDuration.Seconds:00}.{episodeDuration.Milliseconds:000}";
+            string experimentDurationString = $"{experimentDuration.Hours:00}:{experimentDuration.Minutes:00}:{experimentDuration.Seconds:00}";
+            
+            // Calculate averages
+            float avgTimeFrozen = runnersFrozenThisEpisode > 0 ? totalTimeRunnersFrozen / runnersFrozenThisEpisode : 0f;
+            float avgDistance = distanceMeasurements > 0 ? totalDistanceBetweenAgents / distanceMeasurements : 0f;
+            float avgRunnerSurvivalTime = runnerSurvivalTimes.Count > 0 ? runnerSurvivalTimes.Average() : 0f;
+            float avgUnfreezeAttempts = TaggerAgents.Count > 0 ? (float)totalUnfreezeAttempts / TaggerAgents.Count : 0f;
+            float avgSuccessfulFreezesPerTagger = TaggerAgents.Count > 0 ? (float)totalSuccessfulFreezes / TaggerAgents.Count : 0f;
+            float avgUnfreezes = RunnerAgents.Count > 0 ? (float)totalUnfreezes / RunnerAgents.Count : 0f;
+            float avgFreezeBallLifetime = freezeBallLifetimes.Count > 0 ? freezeBallLifetimes.Average() : 0f;
+            float avgFoodBallLifetime = foodBallLifetimes.Count > 0 ? foodBallLifetimes.Average() : 0f;
+            
+            csvWriter.WriteLine($"{totalEpisodes},{System.DateTime.Now:yyyy-MM-dd HH:mm:ss},{winner},{runnerWins},{taggerWins}," +
+                              $"{episodeDurationString},{experimentDurationString}," +
+                              $"{runnersFrozenThisEpisode},{successfulUnfreezesThisEpisode},{foodballsCollectedThisEpisode},{freezeBallsCollectedThisEpisode}," +
+                              $"{timeToFirstFreeze:F2},{avgTimeFrozen:F2},{totalTimeSpentUnfreezing:F2},{avgDistance:F2}," +
+                              $"{agentCollisions},{successfulDodges},{activeFreezeBalls.Count},{activeFoodballs.Count}," +
+                              $"{avgRunnerSurvivalTime:F2},{totalUnfreezeAttempts},{avgUnfreezeAttempts:F2}," +
+                              $"{totalSuccessfulFreezes},{avgSuccessfulFreezesPerTagger:F2},{totalUnfreezes},{avgUnfreezes:F2}," +
+                              $"{avgFreezeBallLifetime:F2},{avgFoodBallLifetime:F2},{freezeBallsUsed}," +
+                              $"{totalFreezeBallsCollected},{totalFoodBallsCollected}");
+            csvWriter.Flush();
+        }
+    }
+
+    void OnEnable()
+    {
+        totalEpisodes = 0;
+        runnerWins = 0;
+        taggerWins = 0;
+        UpdateWinCounters();
+    }
 
     void FixedUpdate()
     {
@@ -145,6 +333,9 @@ public class FreezeTagEnvController : MonoBehaviour
         
         // Update the timer UI
         UpdateTimerText();
+        
+        // Update metrics every fixed update
+        UpdateMetrics();
         
         if (gameTimeLimit > 0 && currentGameTime >= gameTimeLimit)
         {
@@ -169,7 +360,8 @@ public class FreezeTagEnvController : MonoBehaviour
         {
             Debug.Log("No Academy instance available - using manual parameters only");
             overrideLevel = true;
-            levelIndex = manualLevelIndex;
+            levelIndex = 1; // Force Level 2
+            manualLevelIndex = 1; // Force Level 2
             
             // Use manual values
             numRunnersToSpawn = manualRunnerCount;
@@ -186,7 +378,9 @@ public class FreezeTagEnvController : MonoBehaviour
                      $"Runners={numRunnersToSpawn}, Taggers={numTaggersToSpawn}, " +
                      $"Food={numFoodballsToSpawn}, Freeze={numFreezeBallsToSpawn}, Time={gameTimeLimit}");
             return;
-        }else{
+        }
+        else
+        {
             overrideLevel = false;
         }
         
@@ -202,40 +396,12 @@ public class FreezeTagEnvController : MonoBehaviour
             isHeuristicMode = TaggerAgents[0].GetComponent<BehaviorParameters>().BehaviorType == BehaviorType.HeuristicOnly;
         }
 
-        // Get the new level index - if override is enabled or in heuristic mode, use manual level instead
-        int newLevelIndex;
-        if (overrideLevel || isHeuristicMode)
-        {
-            newLevelIndex = manualLevelIndex;
-            if (isHeuristicMode)
-            {
-                Debug.Log("Heuristic mode detected - using manual settings instead of YAML parameters");
-            }
-            else
-            {
-                Debug.Log($"Using manual level override: {newLevelIndex}");
-            }
-        }
-        else
-        {
-            newLevelIndex = (int)envParams.GetWithDefault("level_index", 0f);
-            Debug.Log($"Level Index we got from params is {newLevelIndex} , levelIndex is {levelIndex}, previousLevelIndex is {previousLevelIndex}");
-        }
-        
-        // Check if level has changed
-        if (newLevelIndex != previousLevelIndex)
-        {
-            Debug.Log($"Level changed: {previousLevelIndex} -> {newLevelIndex}");
-            previousLevelIndex = newLevelIndex;
-        }
-        float rawLesson = envParams.GetWithDefault("lesson", -1f);
-        float rawLevel = envParams.GetWithDefault("level_index", -99f);
-        Debug.Log($"[DEBUG] Env Parameters: lesson = {rawLesson}, level_index = {rawLevel}");
-
-        levelIndex = newLevelIndex;
+        // Force Level 2 regardless of parameters
+        levelIndex = 1;
+        Debug.Log("Forcing Level 2 for experiment");
 
         // Use manual values in heuristic mode, otherwise use env parameters
-        if (overrideLevel || isHeuristicMode)
+        if (isHeuristicMode)
         {
             // Use the manual values from Inspector
             numRunnersToSpawn = manualRunnerCount;
@@ -248,7 +414,6 @@ public class FreezeTagEnvController : MonoBehaviour
             MaxFoodballs = manualFoodballCount;
             MaxFreezeBalls = manualFreezeBallCount;
             
-            // Keep the current inspector values rather than getting from YAML
             Debug.Log($"Using manual values in heuristic mode: Level={levelIndex}, " +
                      $"Runners={numRunnersToSpawn}, Taggers={numTaggersToSpawn}, " +
                      $"Food={numFoodballsToSpawn}, Freeze={numFreezeBallsToSpawn}, Time={gameTimeLimit}");
@@ -257,10 +422,10 @@ public class FreezeTagEnvController : MonoBehaviour
         {
             // Read values from YAML as before
             numRunnersToSpawn = (int)envParams.GetWithDefault("num_runners", 5f);
-            numTaggersToSpawn = (int)envParams.GetWithDefault("num_taggers", 0f);
-            numFoodballsToSpawn = (int)envParams.GetWithDefault("num_foodballs", 10f);
-            numFreezeBallsToSpawn = (int)envParams.GetWithDefault("num_freezeballs", 5f);
-            gameTimeLimit = envParams.GetWithDefault("time_limit", 60.0f);
+            numTaggersToSpawn = (int)envParams.GetWithDefault("num_taggers", 4f);
+            numFoodballsToSpawn = (int)envParams.GetWithDefault("num_foodballs", 15f);
+            numFreezeBallsToSpawn = (int)envParams.GetWithDefault("num_freezeballs", 20f);
+            gameTimeLimit = envParams.GetWithDefault("time_limit", 90.0f);
 
             // Optionally link Max items to spawned number, or keep fixed
             MaxFoodballs = numFoodballsToSpawn;
@@ -273,6 +438,40 @@ public class FreezeTagEnvController : MonoBehaviour
     void EnvironmentReset()
     {
         Debug.Log("Environment Reset started...");
+
+        // Increment episode counter
+        totalEpisodes++;
+        if (totalEpisodes > MAX_EPISODES)
+        {
+            Debug.Log($"Experiment complete! Runners: {runnerWins} wins, Taggers: {taggerWins} wins");
+            
+            // Log final results
+            System.TimeSpan totalDuration = System.DateTime.Now - experimentStartTime;
+            Debug.Log($"Experiment completed at {System.DateTime.Now}");
+            Debug.Log($"Total duration: {totalDuration.Hours:00}:{totalDuration.Minutes:00}:{totalDuration.Seconds:00}");
+            Debug.Log($"Total episodes: {totalEpisodes}");
+            Debug.Log($"Runner wins: {runnerWins} ({(float)runnerWins/totalEpisodes*100:F1}%)");
+            Debug.Log($"Tagger wins: {taggerWins} ({(float)taggerWins/totalEpisodes*100:F1}%)");
+            
+            // Close CSV writer
+            if (csvWriter != null)
+            {
+                csvWriter.Close();
+                Debug.Log($"Experiment logs saved to: {csvFilePath}");
+            }
+            
+            // Stop the experiment
+            Time.timeScale = 1f; // Reset time scale
+            Debug.Log("Experiment stopped. Press Play to start a new experiment.");
+            enabled = false; // Disable this component
+            return;
+        }
+
+        // Reset metrics for new episode
+        ResetEpisodeMetrics();
+        
+        // Record episode start time
+        episodeStartTime = System.DateTime.Now;
 
         // 1. Clear old spawned objects
         Debug.Log("Step 1: Clearing old spawned objects...");
@@ -601,13 +800,13 @@ public class FreezeTagEnvController : MonoBehaviour
 
      void CheckAllRunnersFrozen()
     {
-         if (!isLevel2 || RunnerAgents.Count == 0) return; // Check only in level 2 and if runners exist
+         if (!isLevel2 || RunnerAgents.Count == 0) return;
 
         int frozenCount = 0;
-        foreach(var runner in RunnerAgents) // Iterate through the dynamically populated list
+        foreach(var runner in RunnerAgents)
         {
-             // Important: Check if runner object still exists before accessing properties
-            if (runner != null && runner.IsFrozen) {
+            if (runner != null && runner.IsFrozen)
+            {
                 frozenCount++;
             }
         }
@@ -615,25 +814,31 @@ public class FreezeTagEnvController : MonoBehaviour
         if (frozenCount == RunnerAgents.Count)
         {
             Debug.Log("All runners frozen! Taggers win.");
-            foreach(var tagger in TaggerAgents) { // Iterate through the dynamically populated list
-                 if (tagger != null && tagger.gameObject.activeSelf) {
+            taggerWins++;
+            UpdateWinCounters();
+            ShowResult("Taggers Win!");
+            LogEpisodeResult("Taggers");
+            
+            foreach(var tagger in TaggerAgents)
+            {
+                if (tagger != null && tagger.gameObject.activeSelf)
+                {
                     tagger.SetReward(1.0f);
-                 }
+                }
             }
-            EndEpisodeForAllAgents(); // End episode for all agents
+            EndEpisodeForAllAgents();
         }
     }
 
     void HandleTimeout()
     {
-        //Debug.Log("Time limit reached! Episode ending.");
-        
-        // Level 2: Runners win if time is up
         if (isLevel2)
         {
-            //Debug.Log("Time limit reached! Runners win.");
+            runnerWins++;
+            UpdateWinCounters();
+            ShowResult("Runners Win!");
+            LogEpisodeResult("Runners");
             
-            // Give penalty to taggers
             foreach(var tagger in TaggerAgents)
             {
                 if (tagger != null && tagger.gameObject.activeSelf)
@@ -642,17 +847,15 @@ public class FreezeTagEnvController : MonoBehaviour
                 }
             }
             
-            // Give reward to runners for surviving
             foreach(var runner in RunnerAgents)
             {
                 if (runner != null && !runner.IsFrozen)
                 {
-                    runner.AddReward(1.0f); // +1 reward for surviving until time limit
+                    runner.AddReward(1.0f);
                 }
             }
         }
         
-        // End episode for all agents, works for both Level 1 and Level 2
         EndEpisodeForAllAgents();
     }
 
@@ -823,5 +1026,172 @@ public class FreezeTagEnvController : MonoBehaviour
         
         // Normalize: 1.0 = perfect balance, 0.0 = complete imbalance
         return Mathf.Clamp01(1f - (maxDeviation / (totalBalls + 0.01f)));
+    }
+
+    void UpdateWinCounters()
+    {
+        if (runnerWinsText != null)
+        {
+            runnerWinsText.text = $"Runner Wins: {runnerWins}";
+        }
+        if (taggerWinsText != null)
+        {
+            taggerWinsText.text = $"Tagger Wins: {taggerWins}";
+        }
+        
+        // Log win counts after each update
+        Debug.Log($"Episode {totalEpisodes}: Runners {runnerWins} - {taggerWins} Taggers");
+    }
+
+    void ShowResult(string result)
+    {
+        if (resultText != null)
+        {
+            resultText.text = result;
+            resultText.gameObject.SetActive(true);
+            StartCoroutine(HideResultAfterDelay(3f));
+        }
+        
+        // Log the result of each episode
+        Debug.Log($"Episode {totalEpisodes} result: {result}");
+    }
+
+    IEnumerator HideResultAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (resultText != null)
+        {
+            resultText.gameObject.SetActive(false);
+        }
+    }
+
+    void SetupUI()
+    {
+        // Find or create Canvas
+        Canvas canvas = FindObjectOfType<Canvas>();
+        if (canvas == null)
+        {
+            GameObject canvasObj = new GameObject("Canvas");
+            canvas = canvasObj.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvasObj.AddComponent<CanvasScaler>();
+            canvasObj.AddComponent<GraphicRaycaster>();
+        }
+
+        // Create Result Text
+        if (resultText == null)
+        {
+            GameObject resultObj = new GameObject("ResultText");
+            resultObj.transform.SetParent(canvas.transform, false);
+            resultText = resultObj.AddComponent<TextMeshProUGUI>();
+            resultText.fontSize = 36;
+            resultText.alignment = TextAlignmentOptions.Center;
+            resultText.color = Color.white;
+            resultText.text = "";
+            
+            RectTransform resultRect = resultText.GetComponent<RectTransform>();
+            resultRect.anchorMin = new Vector2(0.5f, 0.5f);
+            resultRect.anchorMax = new Vector2(0.5f, 0.5f);
+            resultRect.pivot = new Vector2(0.5f, 0.5f);
+            resultRect.sizeDelta = new Vector2(400, 100);
+            resultRect.anchoredPosition = Vector2.zero;
+        }
+
+        // Create Runner Wins Text (Left side)
+        if (runnerWinsText == null)
+        {
+            GameObject runnerWinsObj = new GameObject("RunnerWinsText");
+            runnerWinsObj.transform.SetParent(canvas.transform, false);
+            runnerWinsText = runnerWinsObj.AddComponent<TextMeshProUGUI>();
+            runnerWinsText.fontSize = 24;
+            runnerWinsText.alignment = TextAlignmentOptions.Left;
+            runnerWinsText.color = Color.white;
+            
+            RectTransform runnerRect = runnerWinsText.GetComponent<RectTransform>();
+            runnerRect.anchorMin = new Vector2(0, 1);
+            runnerRect.anchorMax = new Vector2(0, 1);
+            runnerRect.pivot = new Vector2(0, 1);
+            runnerRect.sizeDelta = new Vector2(200, 50);
+            runnerRect.anchoredPosition = new Vector2(20, -20);
+        }
+
+        // Create Tagger Wins Text (Right side)
+        if (taggerWinsText == null)
+        {
+            GameObject taggerWinsObj = new GameObject("TaggerWinsText");
+            taggerWinsObj.transform.SetParent(canvas.transform, false);
+            taggerWinsText = taggerWinsObj.AddComponent<TextMeshProUGUI>();
+            taggerWinsText.fontSize = 24;
+            taggerWinsText.alignment = TextAlignmentOptions.Right;
+            taggerWinsText.color = Color.white;
+            
+            RectTransform taggerRect = taggerWinsText.GetComponent<RectTransform>();
+            taggerRect.anchorMin = new Vector2(1, 1);
+            taggerRect.anchorMax = new Vector2(1, 1);
+            taggerRect.pivot = new Vector2(1, 1);
+            taggerRect.sizeDelta = new Vector2(200, 50);
+            taggerRect.anchoredPosition = new Vector2(-20, -20);
+        }
+
+        // Create background panels for better visibility
+        CreateBackgroundPanel(runnerWinsText.gameObject, new Color(0, 0, 0, 0.5f));
+        CreateBackgroundPanel(taggerWinsText.gameObject, new Color(0, 0, 0, 0.5f));
+    }
+
+    void CreateBackgroundPanel(GameObject textObject, Color color)
+    {
+        GameObject panel = new GameObject("BackgroundPanel");
+        panel.transform.SetParent(textObject.transform.parent, false);
+        panel.transform.SetSiblingIndex(textObject.transform.GetSiblingIndex());
+        
+        RectTransform panelRect = panel.AddComponent<RectTransform>();
+        panelRect.anchorMin = textObject.GetComponent<RectTransform>().anchorMin;
+        panelRect.anchorMax = textObject.GetComponent<RectTransform>().anchorMax;
+        panelRect.pivot = textObject.GetComponent<RectTransform>().pivot;
+        panelRect.sizeDelta = textObject.GetComponent<RectTransform>().sizeDelta + new Vector2(20, 20);
+        panelRect.anchoredPosition = textObject.GetComponent<RectTransform>().anchoredPosition;
+        
+        Image panelImage = panel.AddComponent<Image>();
+        panelImage.color = color;
+    }
+
+    // Add these methods to track specific events
+    public void OnRunnerFrozen()
+    {
+        runnersFrozenThisEpisode++;
+        totalSuccessfulFreezes++;
+        if (!firstFreezeOccurred)
+        {
+            timeToFirstFreeze = currentGameTime;
+            firstFreezeOccurred = true;
+        }
+    }
+
+    public void OnRunnerUnfrozen(float survivalTime)
+    {
+        runnerSurvivalTimes.Add(survivalTime);
+        totalUnfreezes++;
+    }
+
+    public void OnUnfreezeAttempt()
+    {
+        totalUnfreezeAttempts++;
+    }
+
+    public void OnFreezeBallUsed(float lifetime)
+    {
+        freezeBallsUsed++;
+        freezeBallLifetimes.Add(lifetime);
+    }
+
+    public void OnFoodBallCollected(float lifetime)
+    {
+        foodBallLifetimes.Add(lifetime);
+        totalFoodBallsCollected++;
+    }
+
+    public void OnFreezeBallCollected()
+    {
+        totalFreezeBallsCollected++;
     }
 }

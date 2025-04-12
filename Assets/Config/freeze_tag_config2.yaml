@@ -22,7 +22,7 @@ behaviors:
       extrinsic:
         gamma: 0.99
         strength: 1.0
-    max_steps: 10000000
+    max_steps: 6000000
     time_horizon: 64
     summary_freq: 20000
     checkpoint_interval: 40000
@@ -48,7 +48,7 @@ behaviors:
       extrinsic:
         gamma: 0.99
         strength: 1.0
-    max_steps: 10000000
+    max_steps: 4000000
     time_horizon: 64
     summary_freq: 20000
     checkpoint_interval: 40000
@@ -62,7 +62,7 @@ environment_parameters:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 1
+          threshold: 1.0
           require_reset: true
         value: 0.0
       - name: Lesson0_medium
@@ -70,14 +70,14 @@ environment_parameters:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 2
+          threshold: 2.0
           require_reset: true
         value: 0.5
       - name: Lesson1_base
         completion_criteria:
           measure: reward
           behavior: RunnerBehavior
-          min_lesson_length: 100
+          min_lesson_length: 200
           threshold: 2.5
           require_reset: true
         value: 1.0
@@ -91,7 +91,7 @@ environment_parameters:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 1
+          threshold: 1.0
           require_reset: true
         value: 0.0
       - name: Lesson0_medium
@@ -99,14 +99,14 @@ environment_parameters:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 2
+          threshold: 2.0
           require_reset: true
         value: 0.0
       - name: Lesson1_base
         completion_criteria:
           measure: reward
           behavior: RunnerBehavior
-          min_lesson_length: 100
+          min_lesson_length: 200
           threshold: 2.5
           require_reset: true
         value: 1.0
@@ -120,32 +120,56 @@ environment_parameters:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 1
+          threshold: 1.0
           require_reset: true
-        value: 10.0
+        value: 5.0
       - name: Lesson0_medium
         completion_criteria:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 2
+          threshold: 2.0
           require_reset: true
-        value: 10.0
+        value: 6.0
       - name: Lesson1_base
         completion_criteria:
           measure: reward
           behavior: RunnerBehavior
-          min_lesson_length: 100
+          min_lesson_length: 200
           threshold: 2.5
           require_reset: true
-        value: 15.0
+        value: 8.0
       - name: Lesson1_hard
-        value: 15.0
+        value: 10.0
 
   num_runners:
-    sampler_type: constant
-    sampler_parameters:
-      value: 5.0
+    curriculum:
+      - name: Lesson0_easy
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 1.0
+          require_reset: true
+        value: 4.0
+      - name: Lesson0_medium
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 100
+          threshold: 2.0
+          require_reset: true
+        value: 5.0
+      - name: Lesson1_base
+        completion_criteria:
+          measure: reward
+          behavior: RunnerBehavior
+          min_lesson_length: 200
+          threshold: 2.5
+          require_reset: true
+        value: 4.0
+      - name: Lesson1_hard
+        value: 5.0
 
   num_taggers:
     curriculum:
@@ -154,7 +178,7 @@ environment_parameters:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 1
+          threshold: 1.0
           require_reset: true
         value: 0.0
       - name: Lesson0_medium
@@ -162,14 +186,14 @@ environment_parameters:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 2
+          threshold: 2.0
           require_reset: true
         value: 0.0
       - name: Lesson1_base
         completion_criteria:
           measure: reward
           behavior: RunnerBehavior
-          min_lesson_length: 100
+          min_lesson_length: 200
           threshold: 2.5
           require_reset: true
         value: 2.0
@@ -183,7 +207,7 @@ environment_parameters:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 1
+          threshold: 1.0
           require_reset: true
         value: 0.0
       - name: Lesson0_medium
@@ -191,19 +215,19 @@ environment_parameters:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 2
+          threshold: 2.0
           require_reset: true
         value: 0.0
       - name: Lesson1_base
         completion_criteria:
           measure: reward
           behavior: RunnerBehavior
-          min_lesson_length: 100
+          min_lesson_length: 200
           threshold: 2.5
           require_reset: true
-        value: 10.0
+        value: 8.0
       - name: Lesson1_hard
-        value: 20.0
+        value: 10.0
 
   time_limit:
     curriculum:
@@ -212,7 +236,7 @@ environment_parameters:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 1
+          threshold: 1.0    
           require_reset: true
         value: 120.0
       - name: Lesson0_medium
@@ -220,14 +244,14 @@ environment_parameters:
           measure: reward
           behavior: RunnerBehavior
           min_lesson_length: 100
-          threshold: 2
+          threshold: 2.0  
           require_reset: true
         value: 120.0
       - name: Lesson1_base
         completion_criteria:
           measure: reward
           behavior: RunnerBehavior
-          min_lesson_length: 100
+          min_lesson_length: 200
           threshold: 2.5
           require_reset: true
         value: 120.0

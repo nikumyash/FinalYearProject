@@ -344,7 +344,10 @@ MonoBehaviour:
   TaggerAgentPrefab: {fileID: 7601217201281433349, guid: b69960be133b75e4f8707de35b083a0a, type: 3}
   timerText: {fileID: 0}
   timerPanel: {fileID: 0}
-  overrideLevel: 0
+  resultText: {fileID: 0}
+  runnerWinsText: {fileID: 0}
+  taggerWinsText: {fileID: 0}
+  overrideLevel: 1
   manualLevelIndex: 1
   manualRunnerCount: 5
   manualTaggerCount: 2
